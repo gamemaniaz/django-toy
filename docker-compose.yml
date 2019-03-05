@@ -1,0 +1,38 @@
+version: '3'
+
+services:
+  louis-app:
+    build: .
+    command: bash -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    container_name: middleware-louis
+    volumes:
+      - .:/middleware-louis
+      - .db_data/db.sqlite3:/db.sqlite3
+    ports:
+      - "8000:8000"
+  redis:
+    image: redis
+    command: ["redis-server", "--appendonly", "yes"]
+    hostname: redis
+    ports:
+      - '6379:6379'
+  worker:
+    build: .
+    command: celery -A middleware.celery worker --loglevel=info
+    volumes:
+      - .:/middleware-louis
+      - .db_data/db.sqlite3:/db.sqlite3
+    links:
+      - redis
+    depends_on:
+      - redis
+  beat:
+    build: .
+    command: celery -A middleware.celery beat
+    volumes:
+      - .:/middleware-louis
+      - .db_data/db.sqlite3:/db.sqlite3
+    links:
+      - redis
+    depends_on:
+      - redis
